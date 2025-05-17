@@ -173,7 +173,7 @@ jobs:
             echo "SukiSU_BRANCH=susfs-stable" >> $GITHUB_ENV
           fi
 
-        - name: Merge Qualcomm CLO branch # 合并高通 CLO 分支
+      - name: Merge Qualcomm CLO branch # 合并高通 CLO 分支
         run: |
           cd "$COMMON"
           # 添加 CLO 远程
