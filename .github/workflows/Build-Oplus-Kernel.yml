@@ -349,6 +349,11 @@ jobs:
           cd "$WORKSPACE/AnyKernel3-KernelSU-Next"
           zip -r "$WORKSPACE/AnyKernel3-${{ inputs.FILE }}-SukiSU-${{ env.KSUVER }}-${{ steps.formatted_date.outputs.formatted }}.zip" *
 
+            - name: Zip AnyKernel3 # 创建 AnyKernel3 压缩文件
+        run: |
+          cd "$WORKSPACE/AnyKernel3-KernelSU-Next"
+          zip -r "$WORKSPACE/AnyKernel3-${{ inputs.FILE }}-SukiSU-${{ env.KSUVER }}-${{ steps.formatted_date.outputs.formatted }}.zip" *
+
       - name: Create Release version and upload # 创建正式版本并上传
         uses: softprops/action-gh-release@v2
         with:
@@ -370,4 +375,3 @@ jobs:
             ${{ env.WORKSPACE }}/image_output/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
