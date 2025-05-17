@@ -159,7 +159,7 @@ jobs:
         run: |
           cd "$WORKSPACE"
           # 添加高通上游 CLO 作为远程仓库
-          git remote add upstream https://source.codeaurora.org/quic/la/kernel/msm-6.6
+          git remote add upstream https://source.codeaurora.org/clo/la/kernel/qco
           # 获取高通上游 CLO 的最新代码
           git fetch upstream
           # 检出指定标签
