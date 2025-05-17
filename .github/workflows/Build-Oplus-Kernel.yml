@@ -163,6 +163,17 @@ jobs:
           repo init -u https://github.com/schqiushui/kernel_manifest.git -b refs/heads/oneplus/${{ inputs.SoC }} -m ${{ inputs.FILE }}.xml --depth=1 || { echo "repo init 失败"; exit 1; }
           repo sync -c -j$(nproc --all) --no-tags || { echo "repo sync 失败"; exit 1; }
           git clone https://gitlab.com/kei-space/clang/r522817.git $PLATFORM/prebuilts/clang/host/linux-x86/clang-r522817
+         
+      - name: Add Qualcomm CLO remote and fetch branch
+        run: |
+          cd "$WORKSPACE/kernel_platform"
+          git remote add qualcomm https://git.codelinaro.org/clo/la/platform/vendor/opensource/kernel
+          git fetch qualcomm KERNEL.PLATFORM.4.0.r1-12100-kernel.0 --depth=1
+          git merge FETCH_HEAD -m "Merge Qualcomm CLO branch" --strategy=recursive -X theirs
+
+      - name: Install additional dependencies
+        run: |
+          sudo apt install -y libssl-dev flex bison dwarves
 
       - name: Get KernelSU version # 获取 KernelSU 版本
         if: ${{ startsWith(inputs.KSU_CONFIG, 'SukiSU') }}
@@ -281,6 +292,8 @@ jobs:
           echo "CONFIG_KPM=y" >> "$DEFCONFIG"
           echo "CONFIG_KSU_SUSFS_SUS_SU=${{ inputs.VFS_PATCH == 'enable' && 'n' || 'y' }}" >> "$DEFCONFIG"
           echo "CONFIG_KSU_MANUAL_HOOK=${{ inputs.VFS_PATCH == 'enable' && 'y' || 'n' }}" >> "$DEFCONFIG"
+          echo "CONFIG_QUALCOMM_CLO=y" >> "$DEFCONFIG"
+          echo "CONFIG_QC_MODEM_MEMDUMP=y" >> "$DEFCONFIG"
           # 启用KPM支持
           echo "CONFIG_KPM=y" >> "$DEFCONFIG"
           echo "CONFIG_MODULES=y" >> "$DEFCONFIG"
