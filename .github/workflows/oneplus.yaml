@@ -154,6 +154,17 @@ jobs:
           repo init -u https://github.com/schqiushui/kernel_manifest.git -b refs/heads/oneplus/${{ inputs.SoC }} -m ${{ inputs.FILE }}.xml --depth=1 || { echo "repo init 失败"; exit 1; }
           repo sync -c -j$(nproc --all) --no-tags || { echo "repo sync 失败"; exit 1; }
           git clone https://gitlab.com/kei-space/clang/r522817.git $PLATFORM/prebuilts/clang/host/linux-x86/clang-r522817
+
+      - name: Merge Qualcomm upstream CLO specific tag # 合并高通上游 CLO 特定标签
+        run: |
+          cd "$WORKSPACE"
+          # 添加高通上游 CLO 作为远程仓库
+          git remote add upstream https://source.codeaurora.org/quic/la/kernel/msm-6.6
+          # 获取高通上游 CLO 的最新代码
+          git fetch upstream
+          # 检出指定标签
+          git checkout tags/KERNEL.PLATFORM.4.0.r1-12400-kernel.0 || { echo "检出标签失败"; exit 1; }
+
           
 
       - name: Get KernelSU version # 获取 KernelSU 版本
