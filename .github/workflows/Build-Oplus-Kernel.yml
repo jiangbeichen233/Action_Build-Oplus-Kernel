@@ -60,6 +60,24 @@ on:
           - enable
           - disable
         default: enable
+        
+      LZ4KD:
+        description: "启用 LZ4KD/ZRAM 补丁 // Enable LZ4KD patch (ZRAM)"
+        required: true
+        type: choice
+        options:
+          - enable
+          - disable
+        default: disable
+
+     KPM:
+        description: "启用 KPM 补丁 // Enable KPM patch"
+        required: true
+        type: choice
+        options:
+          - enable
+          - disable
+        default: enable
 
 jobs:
   build:
@@ -155,6 +173,21 @@ jobs:
             echo "SukiSU_BRANCH=susfs-stable" >> $GITHUB_ENV
           fi
 
+        - name: Merge Qualcomm CLO branch # 合并高通 CLO 分支
+        run: |
+          cd "$COMMON"
+          # 添加 CLO 远程
+          git remote add clo https://git.codelinaro.org/clo/la/kernel/msm-4.0.git || true
+          git fetch clo
+
+          # 合并 CLO 分支
+          git merge --allow-unrelated-histories --no-edit --no-ff clo/KERNEL.PLATFORM.4.0.r1-12100-kernel.0 || {
+            echo "合并 CLO 分支时出现冲突，请手动处理！";
+            git status;
+            exit 1;
+          }
+          echo "CLO 分支合并完成"
+
       - name: SukiSU setup # 配置 SukiSU
         if: ${{ startsWith(inputs.KSU_CONFIG, 'SukiSU') }}
         run: |
@@ -195,6 +228,19 @@ jobs:
           echo "正在打隐藏应用补丁..."
           patch -p1 -F 3 < "69_hide_stuff.patch" || { echo "应用隐藏应用补丁失败"; exit 1; }
           echo "隐藏应用补丁应用完成"
+
+      - name: Apply LZ4KD patch # 应用 LZ4KD 补丁
+        if: ${{ inputs.LZ4KD == 'enable' }}
+        run: |
+          cd "$WORKSPACE"
+          if [ ! -d SukiSU_patch ]; then
+            git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          fi
+          cd "$COMMON"
+          cp ../../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4kd.patch .
+          echo "正在打 LZ4KD 补丁..."
+          patch -p1 -F 3 < lz4kd.patch || { echo "应用 LZ4KD 补丁失败"; exit 1; }
+          echo "LZ4KD 补丁应用完成"
 
       - name: Apply New Hooks patches # 应用新的钩子补丁
         if: ${{ startsWith(inputs.KSU_CONFIG, 'SukiSU') && inputs.VFS_PATCH == 'enable' }}
@@ -240,6 +286,22 @@ jobs:
           echo "CONFIG_KPM=y" >> "$DEFCONFIG"
           echo "CONFIG_KSU_SUSFS_SUS_SU=${{ inputs.VFS_PATCH == 'enable' && 'n' || 'y' }}" >> "$DEFCONFIG"
           echo "CONFIG_KSU_MANUAL_HOOK=${{ inputs.VFS_PATCH == 'enable' && 'y' || 'n' }}" >> "$DEFCONFIG"
+          # KPM 配置
+          if [ "${{ inputs.KPM }}" = "enable" ]; then
+            echo "CONFIG_KPM=y" >> "$DEFCONFIG"
+          fi
+
+          # LZ4KD 配置
+          if [ "${{ inputs.LZ4KD }}" = "enable" ]; then
+            echo "CONFIG_ZSMALLOC=y" >> "$DEFCONFIG"
+            echo "CONFIG_ZRAM=y" >> "$DEFCONFIG"
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> "$DEFCONFIG"
+            echo "CONFIG_CRYPTO_LZ4K=y" >> "$DEFCONFIG"
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> "$DEFCONFIG"
+            echo "CONFIG_CRYPTO_842=y" >> "$DEFCONFIG"
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> "$DEFCONFIG"
+            echo "CONFIG_ZRAM_DEF_COMP_LZ4KD=y" >> "$DEFCONFIG"
+          fi
 
           # Use SukiSU default config
           #echo "CONFIG_KSU_SUSFS=y" >> "$DEFCONFIG"
@@ -316,7 +378,7 @@ jobs:
           fi
 
       - name: Apply patch_linux and replace Image # 应用 patch_linux 并替换 Image
-        if: ${{ inputs.VFS_PATCH == 'enable' }}
+        if: ${{ inputs.KPM == 'enable' }}
         run: |
           cd "$WORKSPACE/image_output"
           curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
