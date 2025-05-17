@@ -61,6 +61,25 @@ on:
           - disable
         default: enable
 
+      KPM:
+        description: "启用内核模块支持(KPM) // Enable Kernel Patch Module (KPM)"
+        required: true
+        type: choice
+        options:
+          - enable
+          - disable
+        default: enable
+
+      ZRAM:
+        description: "启用LZ4KD压缩算法 // Enable LZ4KD compression"
+        required: true
+        type: choice
+        options:
+          - enable
+          - disable
+        default: disable
+
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -211,6 +230,28 @@ jobs:
           echo "正在打 vfs 补丁..."
           patch -p1 -F 3 < "syscall_hooks.patch" || { echo "应用 vfs 补丁失败"; exit 1; }
           echo "vfs 补丁应用完成"
+          
+      - name: Apply KPM patches # 应用KPM补丁
+        if: ${{ inputs.KPM == 'enable' }}
+        run: |
+          cd "$WORKSPACE"
+          git clone https://github.com/ShirkNeko/KPM-Patches.git
+          cp ./KPM-Patches/*.patch "$COMMON/"
+          cd "$COMMON"
+          for patch in *.patch; do
+            patch -p1 < "$patch" || { echo "应用KPM补丁失败: $patch"; exit 1; }
+          done
+
+      - name: Apply LZ4KD patches # 应用LZ4KD补丁
+        if: ${{ inputs.ZRAM == 'enable' }}
+        run: |
+          cd "$WORKSPACE"
+          git clone https://gitlab.com/simonpunk/lz4kd-patches.git
+          cp -r ./lz4kd-patches/include/linux/* "$COMMON/include/linux/"
+          cp -r ./lz4kd-patches/lib/* "$COMMON/lib/"
+          cp ./lz4kd-patches/lz4kd.patch "$COMMON/"
+          cd "$COMMON"
+          patch -p1 < lz4kd.patch || { echo "应用LZ4KD补丁失败"; exit 1; }
 
       - name: Configure kernel # 配置内核
         run: |
@@ -240,6 +281,24 @@ jobs:
           echo "CONFIG_KPM=y" >> "$DEFCONFIG"
           echo "CONFIG_KSU_SUSFS_SUS_SU=${{ inputs.VFS_PATCH == 'enable' && 'n' || 'y' }}" >> "$DEFCONFIG"
           echo "CONFIG_KSU_MANUAL_HOOK=${{ inputs.VFS_PATCH == 'enable' && 'y' || 'n' }}" >> "$DEFCONFIG"
+          # 启用KPM支持
+          echo "CONFIG_KPM=y" >> "$DEFCONFIG"
+          echo "CONFIG_MODULES=y" >> "$DEFCONFIG"
+          echo "CONFIG_MODULE_UNLOAD=y" >> "$DEFCONFIG"
+          echo "CONFIG_MODULE_FORCE_UNLOAD=y" >> "$DEFCONFIG"
+          echo "CONFIG_MODULE_SIG=n" >> "$DEFCONFIG"  # 测试阶段禁用签名验证
+          # 启用LZ4KD支持
+          if [[ "${{ inputs.ZRAM }}" == "enable" ]]; then
+            echo "CONFIG_ZSMALLOC=y" >> "$DEFCONFIG"
+            echo "CONFIG_ZRAM=y" >> "$DEFCONFIG"
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> "$DEFCONFIG"
+            echo "CONFIG_CRYPTO_LZ4K=y" >> "$DEFCONFIG"
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> "$DEFCONFIG"
+            if [[ "${{ env.KERNEL_VERSION }}" == "5.10" ]]; then
+              echo "CONFIG_ZRAM_DEF_COMP_LZ4KD=y" >> "$DEFCONFIG"
+            fi
+          fi
+
 
           # Use SukiSU default config
           #echo "CONFIG_KSU_SUSFS=y" >> "$DEFCONFIG"
@@ -257,6 +316,7 @@ jobs:
           #echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$DEFCONFIG"
           #echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$DEFCONFIG"
           #echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$DEFCONFIG"
+
           echo "更新KernelSU 内核配置完成"
 
           # 
@@ -315,14 +375,14 @@ jobs:
             echo "boot.img 文件未找到，已跳过复制"
           fi
 
-      - name: Apply patch_linux and replace Image # 应用 patch_linux 并替换 Image
-        if: ${{ inputs.VFS_PATCH == 'enable' }}
+      - name: Apply patch_linux and replace Image # 应用patch_linux并替换Image
+        if: ${{ inputs.VFS_PATCH == 'enable' || inputs.KPM == 'enable' }}
         run: |
           cd "$WORKSPACE/image_output"
-          curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
-          chmod +x patch_linux
-          ./patch_linux || { echo "应用 patch_linux 失败"; exit 1; }
-
+          # 下载KPM专用修补工具
+          curl -LO https://github.com/ShirkNeko/KPM-Patches/releases/latest/download/patch_kpm
+          chmod +x patch_kpm
+          ./patch_kpm || { echo "KPM修补失败"; exit 1; }
           cp oImage "$WORKSPACE/AnyKernel3-KernelSU-Next/Image"
           echo "Patched Image 文件替换成功"
 
@@ -332,10 +392,10 @@ jobs:
           DATE=$(date +'%y%m%d-%H%M')
           echo "formatted=$DATE" >> $GITHUB_OUTPUT
 
-      - name: Upload AnyKernel3 # 上传 AnyKernel3
+      - name: Upload AnyKernel3 # 上传AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-          name: "AnyKernel3-${{ inputs.FILE }}-SukiSU-${{ env.KSUVER }}-${{ steps.formatted_date.outputs.formatted }}"
+          name: "AnyKernel3-${{ inputs.FILE }}-SukiSU-${{ env.KSUVER }}-${{ steps.formatted_date.outputs.formatted }}${{ inputs.KPM == 'enable' && '_KPM' || '' }}${{ inputs.ZRAM == 'enable' && '_LZ4KD' || '' }}"
           path: ${{ env.WORKSPACE }}/AnyKernel3-KernelSU-Next/*
 
       - name: Upload Image # 上传 Image
