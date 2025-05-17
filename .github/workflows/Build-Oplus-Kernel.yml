@@ -154,18 +154,7 @@ jobs:
           repo init -u https://github.com/schqiushui/kernel_manifest.git -b refs/heads/oneplus/${{ inputs.SoC }} -m ${{ inputs.FILE }}.xml --depth=1 || { echo "repo init 失败"; exit 1; }
           repo sync -c -j$(nproc --all) --no-tags || { echo "repo sync 失败"; exit 1; }
           git clone https://gitlab.com/kei-space/clang/r522817.git $PLATFORM/prebuilts/clang/host/linux-x86/clang-r522817
-
-      - name: Merge CodeLinaro upstream kernel # 合并高通 CLO 上游分支
-        run: |
-          cd "${{ env.PLATFORM }}/common"
-          if ! git remote | grep -q clo; then
-            git remote add clo https://git.codelinaro.org/clo/la/kernel/qcom.git
-          fi
-          git fetch clo
-          # 指定你需要合并的 tag
-          git merge --no-edit clo/KERNEL.PLATFORM.4.0.r1-12400-kernel.0 || {
-            echo "合并 CLO 上游有冲突，请手动处理"; exit 1;
-          }
+          
 
       - name: Get KernelSU version # 获取 KernelSU 版本
         if: ${{ startsWith(inputs.KSU_CONFIG, 'SukiSU') }}
