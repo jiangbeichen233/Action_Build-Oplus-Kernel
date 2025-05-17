@@ -246,7 +246,7 @@ jobs:
         if: ${{ inputs.KPM == 'enable' }}
         run: |
           cd "$WORKSPACE"
-          git clone https://github.com/ShirkNeko/KPM-Patches.git
+          git clone https://github.com/ShirkNeko/SukiSU_KernelPatch_patch.git
           cp ./KPM-Patches/*.patch "$COMMON/"
           cd "$COMMON"
           for patch in *.patch; do
