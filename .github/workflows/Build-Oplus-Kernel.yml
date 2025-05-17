@@ -1,6 +1,5 @@
 name: Build Oplus Kernel # 构建一加内核
 
-
 on:
   workflow_dispatch:
     inputs:
@@ -71,7 +70,7 @@ on:
           - disable
         default: disable
 
-     KPM:
+      KPM:
         description: "启用 KPM 补丁 // Enable KPM patch"
         required: true
         type: choice
