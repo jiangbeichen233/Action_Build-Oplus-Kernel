@@ -409,12 +409,6 @@ jobs:
           cd "$WORKSPACE/AnyKernel3-KernelSU-Next"
           zip -r "$WORKSPACE/AnyKernel3-${{ inputs.FILE }}-SukiSU-${{ env.KSUVER }}-${{ steps.formatted_date.outputs.formatted }}.zip" *
 
-      - name: Upload AnyKernel3 # 上传AnyKernel3
-        uses: actions/upload-artifact@v4
-        with:
-          name: "AnyKernel3-${{ inputs.FILE }}-SukiSU-${{ env.KSUVER }}-${{ steps.formatted_date.outputs.formatted }}${{ inputs.KPM == 'enable' && '_KPM' || '' }}${{ inputs.ZRAM == 'enable' && '_LZ4KD' || '' }}"
-          path: ${{ env.WORKSPACE }}/AnyKernel3-KernelSU-Next/*
-
       - name: Create Release version and upload # 创建正式版本并上传
         uses: softprops/action-gh-release@v2
         with:
